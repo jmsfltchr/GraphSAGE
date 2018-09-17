@@ -132,18 +132,18 @@ class MLP(Model):
                     self.placeholders['labels_mask'])
 
     def _build(self):
-        self.layers.append(layers.Dense(input_dim=self.input_dim,
-                                 output_dim=self.dims[1],
-                                 act=tf.nn.relu,
-                                 dropout=self.placeholders['dropout'],
-                                 sparse_inputs=False,
-                                 logging=self.logging))
+        self.layers.append(layers.DenseLayerWithWeights(input_dim=self.input_dim,
+                                                        output_dim=self.dims[1],
+                                                        act=tf.nn.relu,
+                                                        dropout=self.placeholders['dropout'],
+                                                        sparse_inputs=False,
+                                                        logging=self.logging))
 
-        self.layers.append(layers.Dense(input_dim=self.dims[1],
-                                 output_dim=self.output_dim,
-                                 act=lambda x: x,
-                                 dropout=self.placeholders['dropout'],
-                                 logging=self.logging))
+        self.layers.append(layers.DenseLayerWithWeights(input_dim=self.dims[1],
+                                                        output_dim=self.output_dim,
+                                                        act=lambda x: x,
+                                                        dropout=self.placeholders['dropout'],
+                                                        logging=self.logging))
 
     def predict(self):
         return tf.nn.softmax(self.outputs)
@@ -184,10 +184,19 @@ SAGEInfo = namedtuple("SAGEInfo",
      'output_dim' # the output (i.e., hidden) dimension
     ])
 
+
 class SampleAndAggregate(GeneralizedModel):
     """
     Base implementation of unsupervised GraphSAGE
     """
+
+    AGGREGATORS = {
+        "mean": MeanAggregator,
+        "seq": SeqAggregator,
+        "maxpool": MaxPoolingAggregator,
+        "meanpool": MeanPoolingAggregator,
+        "gcn": GCNAggregator
+    }
 
     def __init__(self, placeholders, features, adj, degrees,
             layer_infos, concat=True, aggregator_type="mean", 
@@ -208,17 +217,10 @@ class SampleAndAggregate(GeneralizedModel):
             - identity_dim: Set to positive int to use identity features (slow and cannot generalize, but better accuracy)
         '''
         super(SampleAndAggregate, self).__init__(**kwargs)
-        if aggregator_type == "mean":
-            self.aggregator_cls = MeanAggregator
-        elif aggregator_type == "seq":
-            self.aggregator_cls = SeqAggregator
-        elif aggregator_type == "maxpool":
-            self.aggregator_cls = MaxPoolingAggregator
-        elif aggregator_type == "meanpool":
-            self.aggregator_cls = MeanPoolingAggregator
-        elif aggregator_type == "gcn":
-            self.aggregator_cls = GCNAggregator
-        else:
+
+        try:
+            self.aggregator_cls = SampleAndAggregate.AGGREGATORS[aggregator_type]
+        except:
             raise Exception("Unknown aggregator: ", self.aggregator_cls)
 
         # get info from placeholders...

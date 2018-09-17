@@ -130,6 +130,7 @@ def construct_placeholders():
     return placeholders
 
 def train(train_data, test_data=None):
+    writer = tf.summary.FileWriter('.')
     G = train_data[0]
     features = train_data[1]
     id_map = train_data[2]
