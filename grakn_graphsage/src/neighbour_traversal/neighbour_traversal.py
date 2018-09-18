@@ -127,3 +127,21 @@ def collect_to_tree(concept_with_neighbourhood):
         concept_with_neighbourhood.neighbourhood = neighbour_roles
 
     return concept_with_neighbourhood
+
+
+def get_max_depth(concept_with_neighbourhood):
+    """
+    Find the length of the deepest aggregation path
+    :param concept_with_neighbourhood:
+    :return:
+    """
+
+    if len(concept_with_neighbourhood.neighbourhood) == 0:
+        return 0
+    else:
+        max_depth = 0
+        for neighbour_role in concept_with_neighbourhood.neighbourhood:
+            m = get_max_depth(neighbour_role.neighbour)
+            if m > max_depth:
+                max_depth = m
+        return max_depth + 1

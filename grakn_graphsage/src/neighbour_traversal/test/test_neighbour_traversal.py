@@ -12,7 +12,7 @@ from grakn.service.Session.Concept.Concept import Concept, Role
 
 from grakn_graphsage.src.neighbour_traversal.neighbour_traversal import build_neighbourhood_generator, NeighbourRole, \
     ConceptWithNeighbourhood, NEIGHBOUR_PLAYS, TARGET_PLAYS, collect_to_tree, UNKNOWN_ROLE_TARGET_PLAYS, \
-    UNKNOWN_ROLE_NEIGHBOUR_PLAYS
+    UNKNOWN_ROLE_NEIGHBOUR_PLAYS, get_max_depth
 
 client = grakn.Grakn(uri="localhost:48555")
 session = client.session(keyspace="test_schema")
@@ -55,6 +55,8 @@ class TestNeighbourTraversalFromEntity(unittest.TestCase):
 
         return True
 
+
+
     def _assert_depth_correct(self, concept_with_neighbourhood):
         neighbour_role = next(concept_with_neighbourhood.neighbourhood, None)
         if neighbour_role is not None:
@@ -70,5 +72,6 @@ class TestNeighbourTraversalFromEntity(unittest.TestCase):
         self._concept_with_neighbourhood = build_neighbourhood_generator(self.tx, self._concept, k)
 
         collected_tree = collect_to_tree(self._concept_with_neighbourhood)
+
         self.assertEqual(len(collected_tree.neighbourhood), 2)
-        # self._assert_depth_correct(self._concept_with_neighbourhood)
+        self.assertEqual(k, get_max_depth(self._concept_with_neighbourhood))
