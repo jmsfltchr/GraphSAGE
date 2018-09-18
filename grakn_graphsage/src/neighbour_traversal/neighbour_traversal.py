@@ -6,6 +6,10 @@ import grakn
 TARGET_PLAYS = 'target_plays'  # In this case, the neighbour is a relationship in which this concept plays a role
 NEIGHBOUR_PLAYS = 'neighbour_plays'  # In this case the target
 
+# Only needed due to a bug
+UNKNOWN_ROLE_NEIGHBOUR_PLAYS = "UNKNOWN_ROLE_NEIGHBOUR_PLAYS"
+UNKNOWN_ROLE_TARGET_PLAYS = "UNKNOWN_ROLE_TARGET_PLAYS"
+
 
 class NeighbourRole:
     def __init__(self, role, neighbour, target_or_neighbour_plays):
@@ -44,15 +48,16 @@ def build_neighbourhood_generator(grakn_tx: grakn.Transaction,
     # TODO Can't do this presently since querying for the role throws an exception
     # roles_played_iterator = grakn_tx.query("match $x id {}; $relationship($role: $x); get $relationship,
     # $role;".format(target_concept.id))
-
-    roles_played_iterator = grakn_tx.query("match $x id {}; $relationship($x); get $relationship;".format(target_concept.id))
+    roles_played_query = "match $x id {}; $relationship($x); get $relationship;".format(target_concept.id)
+    print(roles_played_query)
+    roles_played_iterator = grakn_tx.query(roles_played_query)
 
     def _roles_played_iterator():
         for answer in roles_played_iterator:
 
             # TODO See above, omitting due to bug
             # role_concept = answer.get("role")
-            role_concept = "UNKNOWN_ROLE"
+            role_concept = UNKNOWN_ROLE_TARGET_PLAYS
             relationship_concept = answer.get("relationship")
 
             yield role_concept, relationship_concept, TARGET_PLAYS
@@ -81,13 +86,18 @@ def build_neighbourhood_generator(grakn_tx: grakn.Transaction,
         # Then from this list of roleplayers, remove `node`, since that's where we've come from
         # Distinguish the concepts found as roleplayers
 
-        roleplayers_iterator = grakn_tx.query(
-            "match $relationship id {}; $relationship($role: $x) isa {}; get $x, $role;".format(target_concept.id,
-                                                                                                target_concept.type().label()))
+        # TODO Can't do this presently since querying for the role throws an exception
+        # roleplayers_query = "match $relationship id {}; $relationship($role: $x) isa {}; get $x, $role;".format(target_concept.id,
+        #                                                                                         target_concept.type().label())
+        roleplayers_query = "match $relationship id {}; $relationship($x) isa {}; get $x;".format(target_concept.id,
+                                                                                                target_concept.type().label())
+        print(roleplayers_query)
+        roleplayers_iterator = grakn_tx.query(roleplayers_query)
 
         def _get_roleplayers_iterator():
             for answer in roleplayers_iterator:
-                role_concept = answer.get("role")
+                # role_concept = answer.get("role")
+                role_concept = UNKNOWN_ROLE_NEIGHBOUR_PLAYS
                 roleplayer_concept = answer.get("x")
                 yield role_concept, roleplayer_concept, NEIGHBOUR_PLAYS
 
@@ -98,36 +108,19 @@ def build_neighbourhood_generator(grakn_tx: grakn.Transaction,
                                                                                        depth))
     return concept_with_neighbourhood
 
-# def walk_for_aggregate(target_concept, neighbour_graph):
-#     neighbour_graph
 
-
-def traverse(concept_with_neighbourhood):
-
-    # concept_with_neighbourhood.neighbourhood = {n for n in concept_with_neighbourhood.neighbourhood}
-
-    neighbourhood = concept_with_neighbourhood.neighbourhood
-
-    neighbourhood.roles_played = {neighbour_role_played for neighbour_role_played in neighbourhood.roles_played}
-
-    [traverse(neighbour_role_played.neighbour) for neighbour_role_played in neighbourhood.roles_played]
-
-    # roles_played = set()
-    # for neighbour_role_played in neighbourhood.roles_played:
-    #     roles_played.add(neighbour_role_played)
-    #     traverse(neighbour_role_played.neighbour)
-
-    neighbourhood.roleplayers = {neighbour_roleplayer for neighbour_roleplayer in neighbourhood.roleplayers}
-
-    return concept_with_neighbourhood
-
-
-def generate_neighbour_trees(neighbourhood_generator):
+def collect_to_tree(concept_with_neighbourhood):
     """
     Given the neighbour generators, yield the fully populated tree of each of the target concept's neighbours
     :param neighbourhood_generators:
     :return:
     """
+    if concept_with_neighbourhood is not None:
+        neighbour_roles = set()
+        for neighbour_role in concept_with_neighbourhood.neighbourhood:
+            neighbour_roles.add(neighbour_role)
+            collect_to_tree(neighbour_role.neighbour)
 
-    for neighbourhood in neighbourhood_generator:
-        roles_played = [role_played for role_played in neighbourhood.roles_played]
+        concept_with_neighbourhood.neighbourhood = neighbour_roles
+
+    return concept_with_neighbourhood
