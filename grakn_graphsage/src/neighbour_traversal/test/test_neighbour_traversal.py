@@ -2,6 +2,9 @@
 
 import unittest
 # from parameterized import parameterized
+# from collections import Generator
+# import itertools.Chain as chain
+
 from ddt import ddt, data
 
 import grakn
@@ -34,19 +37,21 @@ class TestNeighbourTraversalFromEntity(unittest.TestCase):
         :param concept_with_neighbourhood:
         :return:
         """
-        self.assertTrue(isinstance(concept_with_neighbourhood, ConceptWithNeighbourhood))
-        self.assertTrue(isinstance(concept_with_neighbourhood.concept, Concept))
+        self.assertIsInstance(concept_with_neighbourhood, ConceptWithNeighbourhood)
+        self.assertIsInstance(concept_with_neighbourhood.concept, Concept)
+        self.assertIn(type(concept_with_neighbourhood.neighbourhood).__name__, ('generator', 'chain'))
 
-        self.assertTrue(type(concept_with_neighbourhood.neighbourhood).__name__ in ('generator', 'chain'))
+        try:
+            neighbour_role = next(concept_with_neighbourhood.neighbourhood)
 
-        neighbour_role = next(concept_with_neighbourhood.neighbourhood, None)
-        if neighbour_role is not None:
-            self.assertTrue(isinstance(neighbour_role, NeighbourRole))
+            self.assertIsInstance(neighbour_role, NeighbourRole)
 
             self.assertTrue(isinstance(neighbour_role.role, Role) or neighbour_role.role in [UNKNOWN_ROLE_TARGET_PLAYS,
                                                                                              UNKNOWN_ROLE_NEIGHBOUR_PLAYS])
             self.assertIn(neighbour_role.target_or_neighbour_plays, [TARGET_PLAYS, NEIGHBOUR_PLAYS])
             self.assertTrue(self._assert_types_correct(neighbour_role.neighbour))
+        except StopIteration:
+            pass
 
         return True
 
@@ -62,7 +67,6 @@ class TestNeighbourTraversalFromEntity(unittest.TestCase):
 
     @data(1, 2, 3)
     def test_neighbour_traversal_check_depth(self, k):
-        # k = 1
         self._concept_with_neighbourhood = build_neighbourhood_generator(self.tx, self._concept, k)
 
         collected_tree = collect_to_tree(self._concept_with_neighbourhood)

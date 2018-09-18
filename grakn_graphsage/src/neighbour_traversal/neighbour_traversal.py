@@ -34,10 +34,13 @@ def build_neighbourhood_generator(grakn_tx: grakn.Transaction,
                                   target_concept: grakn.service.Session.Concept.Concept,
                                   depth: int):
 
+    def _empty():
+        yield from ()
+
     if depth == 0:
         # # This marks the end of the recursion, simply return this concept
         # return target_concept
-        return None
+        return ConceptWithNeighbourhood(concept=target_concept, neighbourhood=_empty())
 
     # Different cases for traversal
 
