@@ -1,9 +1,16 @@
+from collections import namedtuple
+
 import grakn
 
 
-def traverse_neighbours(grakn_tx: grakn.Transaction,
-                        target_concept: grakn.service.Session.Concept.Concept,
-                        depth: int):
+NeighbourConnection = namedtuple('NeighbourConnection', ['role', 'neighbour'])
+Neighbour = namedtuple('NeighbourConnection', ['concept', 'neighbourhood'])
+Neighbourhood = namedtuple('Neighbourhood', ['roleplayers', 'roles_played'])
+
+
+def build_neighbourhood_generator(grakn_tx: grakn.Transaction,
+                                  target_concept: grakn.service.Session.Concept.Concept,
+                                  depth: int):
 
     if depth == 0:
         # # This marks the end of the recursion, simply return this concept
@@ -11,8 +18,7 @@ def traverse_neighbours(grakn_tx: grakn.Transaction,
         return None
 
     def _empty():
-        return
-        yield
+        yield from ()
 
     neighbourhood = {'roleplayers': _empty(), 'roles_played': _empty(), 'value': None}
 
@@ -35,8 +41,8 @@ def traverse_neighbours(grakn_tx: grakn.Transaction,
             role_concept = "UNKNOWN_ROLE"
             relationship_concept = answer.get("relationship")
             yield {'role:': role_concept,
-                   'relationship': relationship_concept,
-                   'neighbours': traverse_neighbours(grakn_tx, relationship_concept, depth - 1)}
+                   'concept': relationship_concept,
+                   'neighbours': build_neighbourhood_generator(grakn_tx, relationship_concept, depth - 1)}
 
     # Distinguish the concepts found as roles-played
     # Get them lazily
@@ -66,12 +72,37 @@ def traverse_neighbours(grakn_tx: grakn.Transaction,
                 role_concept = answer.get("role")
                 roleplayer_concept = answer.get("x")
                 yield {'role': role_concept,
-                       'roleplayer': roleplayer_concept,
-                       'neighbours': traverse_neighbours(grakn_tx, roleplayer_concept, depth - 1)}
+                       'concept': roleplayer_concept,
+                       'neighbours': build_neighbourhood_generator(grakn_tx, roleplayer_concept, depth - 1)}
 
         neighbourhood['roleplayers'] = _get_roleplayers()
 
-    return neighbourhood
+    return {'role': None,
+            'concept': target_concept,
+            'neighbours': neighbourhood}
 
 # def walk_for_aggregate(target_node, neighbour_graph):
 #     neighbour_graph
+
+
+def traverse(concept_neighbourhood_tree):
+
+    neighbours = concept_neighbourhood_tree['neighbours']
+    roles_played = {role_played for role_played in neighbours['roles_played']}
+    roleplayers = {roleplayer for roleplayer in neighbours['roleplayers']}
+
+
+def generate_neighbour_trees(neighbourhood_generator):
+    """
+    Given the neighbour generators, yield the fully populated tree of each of the target concept's neighbours
+    :param neighbourhood_generators:
+    :return:
+    """
+
+
+
+    for neighbourhood in neighbourhood_generator:
+        roles_played = [role_played for role_played in neighbourhood['roles_played']]
+
+
+

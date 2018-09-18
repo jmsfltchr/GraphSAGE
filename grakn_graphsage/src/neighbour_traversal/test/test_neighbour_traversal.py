@@ -4,7 +4,7 @@ import unittest
 
 import grakn
 
-from grakn_graphsage.src.neighbour_traversal.neighbour_traversal import traverse_neighbours
+from grakn_graphsage.src.neighbour_traversal.neighbour_traversal import build_neighbourhood_generator
 
 
 class TestNeighbourTraversal(unittest.TestCase):
@@ -27,8 +27,12 @@ class TestNeighbourTraversal(unittest.TestCase):
 
         concept_id = concept.id
 
-        neighbour_info = traverse_neighbours(tx, concept, 2)
+        neighbour_info = build_neighbourhood_generator(tx, concept, 2)
 
         roles_played = [role_played for role_played in neighbour_info['roles_played']]
         roleplayers = [roleplayer for roleplayer in neighbour_info['roleplayers']]
+
+        neighbour_info['roles_played']
+
+
         tx.close()
