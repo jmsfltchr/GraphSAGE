@@ -27,12 +27,8 @@ class TestNeighbourTraversal(unittest.TestCase):
 
         concept_id = concept.id
 
-        neighbour_info = build_neighbourhood_generator(tx, concept, 2)
+        concept_with_neighbourhood = build_neighbourhood_generator(tx, concept, 2)
 
-        roles_played = [role_played for role_played in neighbour_info['roles_played']]
-        roleplayers = [roleplayer for roleplayer in neighbour_info['roleplayers']]
-
-        neighbour_info['roles_played']
-
+        neighbour_roles = [neighbour_role for neighbour_role in concept_with_neighbourhood.neighbourhood]
 
         tx.close()

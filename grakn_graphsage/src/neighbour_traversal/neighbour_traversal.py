@@ -1,11 +1,23 @@
+import itertools
 from collections import namedtuple
 
 import grakn
 
 
-NeighbourRole = namedtuple('NeighbourRole', ['role', 'neighbour'])
+TARGET_PLAYS = 'target_plays'  # In this case, the neighbour is a relationship in which this concept plays a role
+NEIGHBOUR_PLAYS = 'neighbour_plays'  # In this case the target
+
+NeighbourRole = namedtuple('NeighbourRole', ['role', 'neighbour', 'target_or_neighbour_plays'])
 ConceptWithNeighbourhood = namedtuple('ConceptWithNeighbourhood', ['concept', 'neighbourhood'])
-Neighbourhood = namedtuple('Neighbourhood', ['roleplayers', 'roles_played'])
+
+
+def _get_neighbour_role(grakn_tx, role_and_concept_iterator, depth):
+    for role, neighbour, target_or_neighbour_plays in role_and_concept_iterator:
+        neighbour = ConceptWithNeighbourhood(concept=neighbour,
+                                             neighbourhood=build_neighbourhood_generator(grakn_tx,
+                                                                                         neighbour,
+                                                                                         depth - 1))
+        yield NeighbourRole(role=role, neighbour=neighbour, target_or_neighbour_plays=target_or_neighbour_plays)
 
 
 def build_neighbourhood_generator(grakn_tx: grakn.Transaction,
@@ -17,46 +29,46 @@ def build_neighbourhood_generator(grakn_tx: grakn.Transaction,
         # return target_concept
         return None
 
-    def _empty():
-        yield from ()
-
-    neighbourhood = Neighbourhood(roleplayers=_empty(), roles_played=_empty())
-
     # Different cases for traversal
 
     # Any concept could play a role in a relationship if the schema permits it
     # TODO Inferred concepts have an id, but can we treat them exactly the same as non-inferred, or must we keep the
     # transaction open?
-    node_id = target_concept.id
 
     # TODO Can't do this presently since querying for the role throws an exception
     # roles_played_iterator = grakn_tx.query("match $x id {}; $relationship($role: $x); get $relationship,
-    # $role;".format(node_id))
-    roles_played_iterator = grakn_tx.query("match $x id {}; $relationship($x); get $relationship;".format(node_id))
+    # $role;".format(target_concept.id))
 
-    def _get_role_and_relationship():
+    roles_played_iterator = grakn_tx.query("match $x id {}; $relationship($x); get $relationship;".format(target_concept.id))
+
+    def _roles_played_iterator():
         for answer in roles_played_iterator:
+
             # TODO See above, omitting due to bug
             # role_concept = answer.get("role")
             role_concept = "UNKNOWN_ROLE"
             relationship_concept = answer.get("relationship")
-            yield {'role:': role_concept,
-                   'concept': relationship_concept,
-                   'neighbours': build_neighbourhood_generator(grakn_tx, relationship_concept, depth - 1)}
+
+            yield role_concept, relationship_concept, TARGET_PLAYS
 
     # Distinguish the concepts found as roles-played
     # Get them lazily
-    neighbourhood.roles_played = _get_role_and_relationship()
+
+    concept_with_neighbourhood = ConceptWithNeighbourhood(concept=target_concept,
+                                                          neighbourhood=_get_neighbour_role(grakn_tx,
+                                                                                            _roles_played_iterator(),
+                                                                                            depth))
 
     # if node.is_entity():
     #     # Nothing special to do here?
     #     pass
-    if target_concept.is_attribute():
-        # Do anything specific to attribute values
-        # Optionally stop further propagation through attributes, since they are shared across the knowledge graph so
-        # this may not provide relevant information
-        neighbourhood.value = target_concept.value()
-    elif target_concept.is_relationship():
+    # if target_concept.is_attribute():
+    #     # Do anything specific to attribute values
+    #     # Optionally stop further propagation through attributes, since they are shared across the knowledge graph so
+    #     # this may not provide relevant information
+    #     neighbourhood.value = target_concept.value()
+
+    if target_concept.is_relationship():
         # Find it's roleplayers
         # id and rel_type should be known (providing rel_type speeds up the query, but shouldn't since we provide the
         #  id)
@@ -64,24 +76,23 @@ def build_neighbourhood_generator(grakn_tx: grakn.Transaction,
         # Distinguish the concepts found as roleplayers
 
         roleplayers_iterator = grakn_tx.query(
-            "match $relationship id {}; $relationship($role: $x) isa {}; get $x, $role;".format(node_id,
+            "match $relationship id {}; $relationship($role: $x) isa {}; get $x, $role;".format(target_concept.id,
                                                                                                 target_concept.type().label()))
 
-        def _get_roleplayers():
+        def _get_roleplayers_iterator():
             for answer in roleplayers_iterator:
                 role_concept = answer.get("role")
                 roleplayer_concept = answer.get("x")
+                yield role_concept, roleplayer_concept, NEIGHBOUR_PLAYS
 
-                neighbour = ConceptWithNeighbourhood(concept=roleplayer_concept,
-                                                     neighbourhood=build_neighbourhood_generator(grakn_tx, roleplayer_concept,
-                                                                                  depth - 1))
-                yield NeighbourRole(role=role_concept, neighbour=neighbour)
+        # Chain the iterators together, so that after getting the roles played you get the roleplayers
+        concept_with_neighbourhood.neighbourhood = itertools.chain(concept_with_neighbourhood.neighbourhood,
+                                                                   _get_neighbour_role(grakn_tx,
+                                                                                       _get_roleplayers_iterator(),
+                                                                                       depth))
+    return concept_with_neighbourhood
 
-        neighbourhood.roleplayers = _get_roleplayers()
-
-    return ConceptWithNeighbourhood(concept=target_concept, neighbourhood=neighbourhood)
-
-# def walk_for_aggregate(target_node, neighbour_graph):
+# def walk_for_aggregate(target_concept, neighbour_graph):
 #     neighbour_graph
 
 
