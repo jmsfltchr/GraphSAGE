@@ -22,10 +22,7 @@ class ConceptWithNeighbourhood:
 
 def _get_neighbour_role(grakn_tx, role_and_concept_iterator, depth):
     for role, neighbour, target_or_neighbour_plays in role_and_concept_iterator:
-        neighbour = ConceptWithNeighbourhood(concept=neighbour,
-                                             neighbourhood=build_neighbourhood_generator(grakn_tx,
-                                                                                         neighbour,
-                                                                                         depth - 1))
+        neighbour = build_neighbourhood_generator(grakn_tx, neighbour, depth - 1)
         yield NeighbourRole(role=role, neighbour=neighbour, target_or_neighbour_plays=target_or_neighbour_plays)
 
 

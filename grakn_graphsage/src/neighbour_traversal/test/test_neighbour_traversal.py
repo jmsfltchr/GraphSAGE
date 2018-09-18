@@ -15,37 +15,38 @@ class TestNeighbourTraversalFromEntity(unittest.TestCase):
         self._session = self._client.session(keyspace="genealogy")
 
     def tearDown(self):
-        pass
+        self.tx.close()
 
     def _assert_type_instances_correct(self, concept_with_neighbourhood):
         self.assertTrue(isinstance(concept_with_neighbourhood, ConceptWithNeighbourhood))
         self.assertTrue(isinstance(concept_with_neighbourhood.concept, Concept))
 
-        self.assertTrue(type(concept_with_neighbourhood.neighbourhood).__name__ == 'generator')
+        self.assertTrue(type(concept_with_neighbourhood.neighbourhood).__name__ in ('generator', 'chain'))
 
-        neighbour_role = next(concept_with_neighbourhood.neighbourhood)
-        if neighbour_role:
+        neighbour_role = next(concept_with_neighbourhood.neighbourhood, None)
+        if neighbour_role is not None:
             self.assertTrue(isinstance(neighbour_role, NeighbourRole))
 
             self.assertTrue(isinstance(neighbour_role.role, Role) or neighbour_role.role == 'UNKNOWN_ROLE')
             self.assertIn(neighbour_role.target_or_neighbour_plays, [TARGET_PLAYS, NEIGHBOUR_PLAYS])
             self.assertTrue(self._assert_type_instances_correct(neighbour_role.neighbour))
+
         return True
 
     def test_neighbour_traversal_structure(self):
 
-        tx = self._session.transaction(grakn.TxType.WRITE)
+        self.tx = self._session.transaction(grakn.TxType.WRITE)
 
         # concept = list(tx.query("match $x isa person, has firstname {}, has surname {}; get $x;".format("Jacob",
         # "Young")))[0]
 
         identifier = "Jacob J. Niesz"
-        concept = list(tx.query("match $x isa person, has identifier '{}'; get $x;".format(identifier)))[0].get('x')
+        concept = list(self.tx.query("match $x isa person, has identifier '{}'; get $x;".format(identifier)))[0].get('x')
 
-        concept_with_neighbourhood = build_neighbourhood_generator(tx, concept, 2)
+        concept_with_neighbourhood = build_neighbourhood_generator(self.tx, concept, 2)
 
         self._assert_type_instances_correct(concept_with_neighbourhood)
 
         # neighbour_roles = [neighbour_role for neighbour_role in concept_with_neighbourhood.neighbourhood]
 
-        tx.close()
+        self.tx.close()
