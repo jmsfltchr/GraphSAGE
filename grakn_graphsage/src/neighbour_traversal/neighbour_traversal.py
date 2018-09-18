@@ -3,8 +3,8 @@ from collections import namedtuple
 import grakn
 
 
-NeighbourConnection = namedtuple('NeighbourConnection', ['role', 'neighbour'])
-Neighbour = namedtuple('NeighbourConnection', ['concept', 'neighbourhood'])
+NeighbourRole = namedtuple('NeighbourRole', ['role', 'neighbour'])
+ConceptWithNeighbourhood = namedtuple('ConceptWithNeighbourhood', ['concept', 'neighbourhood'])
 Neighbourhood = namedtuple('Neighbourhood', ['roleplayers', 'roles_played'])
 
 
@@ -20,7 +20,7 @@ def build_neighbourhood_generator(grakn_tx: grakn.Transaction,
     def _empty():
         yield from ()
 
-    neighbourhood = {'roleplayers': _empty(), 'roles_played': _empty(), 'value': None}
+    neighbourhood = Neighbourhood(roleplayers=_empty(), roles_played=_empty())
 
     # Different cases for traversal
 
@@ -46,7 +46,7 @@ def build_neighbourhood_generator(grakn_tx: grakn.Transaction,
 
     # Distinguish the concepts found as roles-played
     # Get them lazily
-    neighbourhood['roles_played'] = _get_role_and_relationship()
+    neighbourhood.roles_played = _get_role_and_relationship()
 
     # if node.is_entity():
     #     # Nothing special to do here?
@@ -55,7 +55,7 @@ def build_neighbourhood_generator(grakn_tx: grakn.Transaction,
         # Do anything specific to attribute values
         # Optionally stop further propagation through attributes, since they are shared across the knowledge graph so
         # this may not provide relevant information
-        neighbourhood['value'] = target_concept.value()
+        neighbourhood.value = target_concept.value()
     elif target_concept.is_relationship():
         # Find it's roleplayers
         # id and rel_type should be known (providing rel_type speeds up the query, but shouldn't since we provide the
@@ -71,25 +71,38 @@ def build_neighbourhood_generator(grakn_tx: grakn.Transaction,
             for answer in roleplayers_iterator:
                 role_concept = answer.get("role")
                 roleplayer_concept = answer.get("x")
-                yield {'role': role_concept,
-                       'concept': roleplayer_concept,
-                       'neighbours': build_neighbourhood_generator(grakn_tx, roleplayer_concept, depth - 1)}
 
-        neighbourhood['roleplayers'] = _get_roleplayers()
+                neighbour = ConceptWithNeighbourhood(concept=roleplayer_concept,
+                                                     neighbourhood=build_neighbourhood_generator(grakn_tx, roleplayer_concept,
+                                                                                  depth - 1))
+                yield NeighbourRole(role=role_concept, neighbour=neighbour)
 
-    return {'role': None,
-            'concept': target_concept,
-            'neighbours': neighbourhood}
+        neighbourhood.roleplayers = _get_roleplayers()
+
+    return ConceptWithNeighbourhood(concept=target_concept, neighbourhood=neighbourhood)
 
 # def walk_for_aggregate(target_node, neighbour_graph):
 #     neighbour_graph
 
 
-def traverse(concept_neighbourhood_tree):
+def traverse(concept_with_neighbourhood):
 
-    neighbours = concept_neighbourhood_tree['neighbours']
-    roles_played = {role_played for role_played in neighbours['roles_played']}
-    roleplayers = {roleplayer for roleplayer in neighbours['roleplayers']}
+    # concept_with_neighbourhood.neighbourhood = {n for n in concept_with_neighbourhood.neighbourhood}
+
+    neighbourhood = concept_with_neighbourhood.neighbourhood
+
+    neighbourhood.roles_played = {neighbour_role_played for neighbour_role_played in neighbourhood.roles_played}
+
+    [traverse(neighbour_role_played.neighbour) for neighbour_role_played in neighbourhood.roles_played]
+
+    # roles_played = set()
+    # for neighbour_role_played in neighbourhood.roles_played:
+    #     roles_played.add(neighbour_role_played)
+    #     traverse(neighbour_role_played.neighbour)
+
+    neighbourhood.roleplayers = {neighbour_roleplayer for neighbour_roleplayer in neighbourhood.roleplayers}
+
+    return concept_with_neighbourhood
 
 
 def generate_neighbour_trees(neighbourhood_generator):
@@ -99,10 +112,5 @@ def generate_neighbour_trees(neighbourhood_generator):
     :return:
     """
 
-
-
     for neighbourhood in neighbourhood_generator:
-        roles_played = [role_played for role_played in neighbourhood['roles_played']]
-
-
-
+        roles_played = [role_played for role_played in neighbourhood.roles_played]
