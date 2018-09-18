@@ -1,5 +1,4 @@
 import itertools
-from collections import namedtuple
 
 import grakn
 
@@ -7,8 +6,18 @@ import grakn
 TARGET_PLAYS = 'target_plays'  # In this case, the neighbour is a relationship in which this concept plays a role
 NEIGHBOUR_PLAYS = 'neighbour_plays'  # In this case the target
 
-NeighbourRole = namedtuple('NeighbourRole', ['role', 'neighbour', 'target_or_neighbour_plays'])
-ConceptWithNeighbourhood = namedtuple('ConceptWithNeighbourhood', ['concept', 'neighbourhood'])
+
+class NeighbourRole:
+    def __init__(self, role, neighbour, target_or_neighbour_plays):
+        self.role = role
+        self.neighbour = neighbour
+        self.target_or_neighbour_plays = target_or_neighbour_plays
+
+
+class ConceptWithNeighbourhood:
+    def __init__(self, concept, neighbourhood):
+        self.concept = concept
+        self.neighbourhood = neighbourhood
 
 
 def _get_neighbour_role(grakn_tx, role_and_concept_iterator, depth):
