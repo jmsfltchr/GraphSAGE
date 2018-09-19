@@ -73,32 +73,3 @@ def load_data(prefix, normalize=True, load_walks=False):
                 walks.append(map(conversion, line.split()))
 
     return G, feats, id_map, walks, class_map
-
-def run_random_walks(G, nodes, num_walks=N_WALKS):
-    pairs = []
-    for count, node in enumerate(nodes):
-        if G.degree(node) == 0:
-            continue
-        for i in range(num_walks):
-            curr_node = node
-            for j in range(WALK_LEN):
-                next_node = random.choice(G.neighbors(curr_node))
-                # self co-occurrences are useless
-                if curr_node != node:
-                    pairs.append((node,curr_node))
-                curr_node = next_node
-        if count % 1000 == 0:
-            print("Done walks for", count, "nodes")
-    return pairs
-
-if __name__ == "__main__":
-    """ Run random walks """
-    graph_file = sys.argv[1]
-    out_file = sys.argv[2]
-    G_data = json.load(open(graph_file))
-    G = json_graph.node_link_graph(G_data)
-    nodes = [n for n in G.nodes() if not G.node[n]["val"] and not G.node[n]["test"]]
-    G = G.subgraph(nodes)
-    pairs = run_random_walks(G, nodes)
-    with open(out_file, "w") as fp:
-        fp.write("\n".join([str(p[0]) + "\t" + str(p[1]) for p in pairs]))

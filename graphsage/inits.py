@@ -24,6 +24,7 @@ def zeros(shape, name=None):
     initial = tf.zeros(shape, dtype=tf.float32)
     return tf.Variable(initial, name=name)
 
+
 def ones(shape, name=None):
     """All ones."""
     initial = tf.ones(shape, dtype=tf.float32)
