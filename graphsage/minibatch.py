@@ -40,22 +40,13 @@ class EdgeMinibatchIterator(object):
         else:
             edges = context_pairs
         self.train_edges = self.edges = np.random.permutation(edges)
-        if not n2v_retrain:
-            self.train_edges = self._remove_isolated(self.train_edges)
-            self.val_edges = [e for e in G.edges() if G[e[0]][e[1]]['train_removed']]
-        else:
-            if fixed_n2v:
-                self.train_edges = self.val_edges = self._n2v_prune(self.edges)
-            else:
-                self.train_edges = self.val_edges = self.edges
+        self.train_edges = self._remove_isolated(self.train_edges)
+
+        self.val_edges = [e for e in G.edges() if G[e[0]][e[1]]['train_removed']]
 
         print(len([n for n in G.nodes() if not G.node[n]['test'] and not G.node[n]['val']]), 'train nodes')
         print(len([n for n in G.nodes() if G.node[n]['test'] or G.node[n]['val']]), 'test nodes')
         self.val_set_size = len(self.val_edges)
-
-    def _n2v_prune(self, edges):
-        is_val = lambda n : self.G.node[n]["val"] or self.G.node[n]["test"]
-        return [e for e in edges if not is_val(e[1])]
 
     def _remove_isolated(self, edge_list):
         new_edge_list = []
