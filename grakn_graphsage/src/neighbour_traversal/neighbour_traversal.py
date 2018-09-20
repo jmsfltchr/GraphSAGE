@@ -73,6 +73,10 @@ def build_neighbourhood_generator(grakn_tx: grakn.Transaction,
                                                                                             _roles_played_iterator(),
                                                                                             depth))
 
+    # TODO If user doesn't attach anything to impicit @has relationships, then these could be filtered out. Instead
+    # another query would be required: "match $x id {}, has attribute $attribute; get $attribute;"
+    # We would use TARGET_PLAYS with Role "has"
+
     # if node.is_entity():
     #     # Nothing special to do here?
     #     pass
