@@ -65,30 +65,51 @@ class EdgeMinibatchIterator(object):
         return new_edge_list
 
     def construct_adj(self):
-        adj = len(self.id2idx)*np.ones((len(self.id2idx)+1, self.max_degree))
-        deg = np.zeros((len(self.id2idx),))
 
+        # This is conducted over the whole graph!
+
+        # Construct an adjacency matrix where each row represents a random pick of the neighbours of the node this
+        # row corresponds to. Shape (n + 1, max_degree), with row-wise values of the node ids
+
+        # Note that this means the neighbours for each concept have been pre-picked
+        adj = len(self.id2idx)*np.ones((len(self.id2idx)+1, self.max_degree))
+
+        deg = np.zeros((len(self.id2idx),))  # To my knowledge, exactly the same as: deg = np.zeros(len(self.id2idx))
+
+        # For all nodes in the graph
         for nodeid in self.G.nodes():
             if self.G.node[nodeid]['test'] or self.G.node[nodeid]['val']:
+                # Skip if the node isn't labelled as for training
                 continue
-            neighbors = np.array([self.id2idx[neighbor] 
-                for neighbor in self.G.neighbors(nodeid)
-                if (not self.G[nodeid][neighbor]['train_removed'])])
+
+            # List comprehension to get neighbors that have attribute 'train_removed' False (or non-existent?)
+            # Then stores them in an array
+            neighbors = np.array([self.id2idx[neighbor] for neighbor in self.G.neighbors(nodeid) if (not self.G[nodeid][neighbor]['train_removed'])])
+
+            # The degree of the node is the number of neighbours
             deg[self.id2idx[nodeid]] = len(neighbors)
+
             if len(neighbors) == 0:
+                # If there are no neighbours then we're done with this node
                 continue
+                # TODO I'm surprised that the max_degree is a fixed parameter, I thought it should be equal to the
+                # number of samples taken at this depth, according to the paper. Maybe this is so that it can be
+                # loaded into a matrix of fixed size
             if len(neighbors) > self.max_degree:
+                # If there are more neighbours than a threshold then sample without replacement
                 neighbors = np.random.choice(neighbors, self.max_degree, replace=False)
             elif len(neighbors) < self.max_degree:
+                # If there are more neighbours than a threshold then sample with replacement
                 neighbors = np.random.choice(neighbors, self.max_degree, replace=True)
+
+            # Set the row of the adjacency matrix to be the neighbours found
             adj[self.id2idx[nodeid], :] = neighbors
         return adj, deg
 
     def construct_test_adj(self):
         adj = len(self.id2idx)*np.ones((len(self.id2idx)+1, self.max_degree))
         for nodeid in self.G.nodes():
-            neighbors = np.array([self.id2idx[neighbor] 
-                for neighbor in self.G.neighbors(nodeid)])
+            neighbors = np.array([self.id2idx[neighbor] for neighbor in self.G.neighbors(nodeid)])
             if len(neighbors) == 0:
                 continue
             if len(neighbors) > self.max_degree:
@@ -105,9 +126,13 @@ class EdgeMinibatchIterator(object):
         batch1 = []
         batch2 = []
         for node1, node2 in batch_edges:
+            # Iterate over a batch of edges
+            # batch1 is filled with the first node of the edge
             batch1.append(self.id2idx[node1])
+            # batch1 is filled with the second node of the edge
             batch2.append(self.id2idx[node2])
 
+        # Update the feed_dict accordingly
         feed_dict = dict()
         feed_dict.update({self.placeholders['batch_size'] : len(batch_edges)})
         feed_dict.update({self.placeholders['batch1']: batch1})
@@ -116,9 +141,13 @@ class EdgeMinibatchIterator(object):
         return feed_dict
 
     def next_minibatch_feed_dict(self):
+
+        # Based on node ids, split the graph's edges into minibatches
         start_idx = self.batch_num * self.batch_size
         self.batch_num += 1
         end_idx = min(start_idx + self.batch_size, len(self.train_edges))
+
+        # Gets a batch of edges
         batch_edges = self.train_edges[start_idx : end_idx]
         return self.batch_feed_dict(batch_edges)
 

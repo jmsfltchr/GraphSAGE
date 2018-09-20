@@ -160,7 +160,7 @@ def train(train_data, test_data=None):
                                      features,
                                      adj_info,
                                      minibatch.deg,
-                                     layer_infos=layer_infos, 
+                                     layer_infos=layer_infos,
                                      model_size=FLAGS.model_size,
                                      identity_dim = FLAGS.identity_dim,
                                      logging=True)
@@ -168,7 +168,7 @@ def train(train_data, test_data=None):
     elif FLAGS.model == 'graphsage_maxpool':
         sampler = UniformNeighborSampler(adj_info)
         layer_infos = [SAGEInfo("node", sampler, FLAGS.samples_1, FLAGS.dim_1),
-                            SAGEInfo("node", sampler, FLAGS.samples_2, FLAGS.dim_2)]
+                       SAGEInfo("node", sampler, FLAGS.samples_2, FLAGS.dim_2)]
 
         model = SampleAndAggregate(placeholders, 
                                     features,
@@ -220,6 +220,7 @@ def train(train_data, test_data=None):
     avg_time = 0.0
     epoch_val_costs = []
 
+    # This isn't just the adjacency matrix for a minibatch, but for training data across the whole graph
     train_adj_info = tf.assign(adj_info, minibatch.adj)
     val_adj_info = tf.assign(adj_info, minibatch.test_adj)
     for epoch in range(FLAGS.epochs): 

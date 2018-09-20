@@ -225,6 +225,8 @@ class SampleAndAggregate(GeneralizedModel):
         self.inputs2 = placeholders["batch2"]
         self.model_size = model_size
         self.adj_info = adj
+
+        # Compose features for all nodes, which is the concatenation of given features and identity features
         if identity_dim > 0:
            self.embeds = tf.get_variable("node_embeddings", [adj.get_shape().as_list()[0], identity_dim])
         else:
@@ -341,8 +343,8 @@ class SampleAndAggregate(GeneralizedModel):
             distortion=0.75,
             unigrams=self.degrees.tolist()))
 
-           
         # perform "convolution"
+        # inputs1 and inputs2 contain the corresponding nodes at each end of an edge
         samples1, support_sizes1 = self.sample(self.inputs1, self.layer_infos)
         samples2, support_sizes2 = self.sample(self.inputs2, self.layer_infos)
         num_samples = [layer_info.num_samples for layer_info in self.layer_infos]
